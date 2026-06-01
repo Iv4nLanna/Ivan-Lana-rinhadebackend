@@ -178,4 +178,31 @@ public class KnnSearchTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Search_DistanceCoversAllFourteenDims()
+    {
+        // Guarda contra esquecer a "sobra" (dims 8-13) no cálculo SIMD.
+        // 5 legítimos próximos em TODAS as dims (0.1 em todas) → dist² = 14·0.01 = 0.14.
+        // 1 fraude próximo só nas dims 0-7 (=0), longe nas 8-13 (=0.5) → dist² = 6·0.25 = 1.5.
+        // Query = zeros. Contando as 14 dims, os 5 legítimos são os mais próximos → score 0.
+        // Se ignorasse as dims 8-13, o fraude (dist 0 nas dims 0-7) entraria no top-5 → score 0.2.
+        float[] legit = Enumerable.Repeat(0.1f, 14).ToArray();
+        float[] fraudNearOnlyInHead = new float[14];
+        for (int d = 8; d < 14; d++) fraudNearOnlyInHead[d] = 0.5f;
+
+        float[][] rows = [legit, legit, legit, legit, legit, fraudNearOnlyInHead];
+        bool[] frauds = [false, false, false, false, false, true];
+        var (ds, dir) = await BuildDatasetFromRowsAsync(rows, frauds);
+        try
+        {
+            float score = KnnSearch.Search(new float[14], ds);
+            Assert.Equal(0f, score);
+        }
+        finally
+        {
+            ds.Dispose();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }
