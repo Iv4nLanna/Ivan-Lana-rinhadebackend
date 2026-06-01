@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+data/*.json.gz
+data/*.json
+!data/.gitkeep
