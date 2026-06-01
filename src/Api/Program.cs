@@ -46,7 +46,7 @@ app.MapPost("/fraud-score", async (HttpRequest request, ReferenceDataset ds) =>
     );
 
     var vector = Normalizer.Normalize(req, ds.MccRisk, knownMerchants);
-    var fraudScore = KnnSearch.Search(vector, ds.Vectors, ds.Labels, ds.Count);
+    var fraudScore = KnnSearch.Search(vector, ds);
 
     return Results.Ok(new FraudScoreResponse
     {

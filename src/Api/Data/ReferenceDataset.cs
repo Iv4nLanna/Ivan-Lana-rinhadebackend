@@ -108,6 +108,9 @@ public class ReferenceDataset
         }
     }
 
+    // M3: stub — Task 3 substituirá com liberação de MemoryMappedFile
+    public void Dispose() { }
+
     private sealed class ReferenceEntry
     {
         [JsonPropertyName("vector")]
