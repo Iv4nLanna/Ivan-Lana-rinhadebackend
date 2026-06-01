@@ -123,4 +123,59 @@ public class KnnSearchTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Search_TiedDistances_PicksLowestIndices()
+    {
+        // 6 vetores idênticos → todos empatam na distância à query (zero).
+        // OrderBy().Take(5) estável mantém os 5 de MENOR índice (0..4) e descarta o índice 5.
+        // Só o índice 5 (descartado) é fraude → o score correto é 0.
+        // Uma seleção Top-K que desempata errado manteria o índice 5 e daria 0.2.
+        float[][] rows =
+        [
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+        ];
+        bool[] frauds = [false, false, false, false, false, true];
+        var (ds, dir) = await BuildDatasetFromRowsAsync(rows, frauds);
+        try
+        {
+            float score = KnnSearch.Search(new float[14], ds);
+            Assert.Equal(0f, score);
+        }
+        finally
+        {
+            ds.Dispose();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Search_FewerThanFiveVectors_DividesByFive()
+    {
+        // Só 3 vetores no dataset; 2 são fraude. O score divide por 5 (constante K),
+        // não por 3 — replicando o `Take(5)` + `/5f` original quando há < 5 vizinhos.
+        float[][] rows =
+        [
+            Enumerable.Repeat(0.1f, 14).ToArray(),
+            Enumerable.Repeat(0.2f, 14).ToArray(),
+            Enumerable.Repeat(0.3f, 14).ToArray(),
+        ];
+        bool[] frauds = [true, true, false];
+        var (ds, dir) = await BuildDatasetFromRowsAsync(rows, frauds);
+        try
+        {
+            float score = KnnSearch.Search(new float[14], ds);
+            Assert.Equal(0.4f, score, 4); // 2 fraudes / 5 = 0.4
+        }
+        finally
+        {
+            ds.Dispose();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }
