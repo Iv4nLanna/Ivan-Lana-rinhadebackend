@@ -43,6 +43,8 @@ public class ReferenceDataset
         using var reader = new BinaryReader(fs);
 
         int count = reader.ReadInt32();
+        if (count < 0 || count > 10_000_000)
+            throw new InvalidDataException($"references.bin: count={count} inválido");
 
         var vectors = new float[count, 14];
         for (int i = 0; i < count; i++)
