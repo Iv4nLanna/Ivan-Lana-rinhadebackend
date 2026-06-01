@@ -3,7 +3,7 @@ name: rinha-2026
 services:
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:alpine
     ports:
       - "9999:9999"
     volumes:
@@ -33,7 +33,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 60
-      start_period: 10s
+      start_period: 600s
     deploy:
       resources:
         limits:
@@ -54,7 +54,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 60
-      start_period: 10s
+      start_period: 600s
     deploy:
       resources:
         limits:
