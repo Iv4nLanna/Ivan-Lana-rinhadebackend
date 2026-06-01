@@ -77,7 +77,7 @@ public class DatasetTests
                 w.Write((byte)0); // label 1: legítimo
             }
 
-            var dataset = new ReferenceDataset();
+            using var dataset = new ReferenceDataset();
             await dataset.LoadAsync(tempDir);
 
             Assert.True(dataset.IsReady);
