@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -13,6 +14,13 @@ public class ReferenceDataset
 
     private volatile bool _isReady;
     public bool IsReady => _isReady;
+
+    // M3: API pública de acesso — backed por float[,] agora, por MMF em Task 3
+    public ReadOnlySpan<float> GetVector(int i)
+        => MemoryMarshal.CreateReadOnlySpan(ref Vectors[i, 0], 14);
+
+    public bool GetLabel(int i)
+        => Labels[i];
 
     public async Task LoadAsync(string dataDir)
     {

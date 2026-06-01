@@ -18,8 +18,7 @@ public class DatasetTests
 
         Assert.True(dataset.IsReady);
         Assert.True(dataset.Count > 0);
-        Assert.Equal(14, dataset.Vectors.GetLength(1));
-        Assert.Equal(dataset.Count, dataset.Labels.Length);
+        Assert.Equal(14, dataset.GetVector(0).Length);
         Assert.NotEmpty(dataset.MccRisk);
     }
 
@@ -37,9 +36,10 @@ public class DatasetTests
         // All dimensions except 5 and 6 must be in [0, 1]
         for (int i = 0; i < dataset.Count; i++)
         {
+            var vec = dataset.GetVector(i);
             for (int d = 0; d < 14; d++)
             {
-                float v = dataset.Vectors[i, d];
+                float v = vec[d];
                 if (d == 5 || d == 6)
                     Assert.True(v == -1f || (v >= 0f && v <= 1f),
                         $"Dim {d} row {i}: value {v} out of range");
@@ -56,7 +56,6 @@ public class DatasetTests
         Directory.CreateDirectory(tempDir);
         try
         {
-            // mcc_risk.json é sempre necessário
             await File.WriteAllTextAsync(
                 Path.Combine(tempDir, "mcc_risk.json"),
                 "{\"5411\":0.15}"
@@ -83,17 +82,18 @@ public class DatasetTests
 
             Assert.True(dataset.IsReady);
             Assert.Equal(2, dataset.Count);
-            Assert.Equal(14, dataset.Vectors.GetLength(1));
-            Assert.Equal(2, dataset.Labels.Length);
+            Assert.Equal(14, dataset.GetVector(0).Length);
 
-            Assert.Equal(0.5f, dataset.Vectors[0, 0]);
-            Assert.Equal(0.5f, dataset.Vectors[0, 13]);
-            Assert.Equal(0.1f, dataset.Vectors[1, 0]);
-            Assert.Equal(-1f,  dataset.Vectors[1, 5]);
-            Assert.Equal(-1f,  dataset.Vectors[1, 6]);
+            // Verifica vetores
+            Assert.Equal(0.5f, dataset.GetVector(0)[0]);
+            Assert.Equal(0.5f, dataset.GetVector(0)[13]);
+            Assert.Equal(0.1f, dataset.GetVector(1)[0]);
+            Assert.Equal(-1f,  dataset.GetVector(1)[5]);
+            Assert.Equal(-1f,  dataset.GetVector(1)[6]);
 
-            Assert.True(dataset.Labels[0]);   // fraude
-            Assert.False(dataset.Labels[1]);  // legítimo
+            // Verifica labels
+            Assert.True(dataset.GetLabel(0));   // fraude
+            Assert.False(dataset.GetLabel(1));  // legítimo
         }
         finally
         {
