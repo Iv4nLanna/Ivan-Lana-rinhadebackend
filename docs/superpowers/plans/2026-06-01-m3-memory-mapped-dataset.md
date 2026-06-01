@@ -890,3 +890,34 @@ git commit -m "chore: registra resultado de startup e RAM do M3"
 - `KnnSearch.Search(float[] query, ReferenceDataset ds)` — definido em Task 2, chamado em Program.cs Task 2 ✓
 - `LoadFromMmf(string binPath)` — private, chamado só em `LoadAsync` ✓
 - `_vectorsPtr` → `float*`, `_labelsPtr` → `byte*` — consistentes em GetVector, GetLabel e LoadFromMmf ✓
+
+---
+
+## Resultados da medição (Task 4) — 2026-06-01
+
+Medido com `references.bin` real de **163 MB** (3M vetores × 14 dims), Docker 29.4.2 em WSL2, limite de 175 MB/instância.
+
+**Startup até `/ready`:** ambos os containers (`api-1`, `api-2`) ficaram `Healthy` em poucos segundos após `docker compose up -d` — sem OOM. Comparar com M2, onde a alocação heap de 168 MB causava `OutOfMemoryException` imediato e os containers nem subiam.
+
+**RAM logo após o startup (antes de qualquer request):**
+
+| Container            | MEM USAGE / LIMIT   | MEM %  |
+|----------------------|---------------------|--------|
+| `rinha-2026-api-1-1` | 23.53 MiB / 175 MiB | 13.4 % |
+| `rinha-2026-api-2-1` | 23.12 MiB / 175 MiB | 13.2 % |
+| `rinha-2026-nginx-1` | 6.87 MiB / 10 MiB   | 68.7 % |
+
+As páginas de `references.bin` ainda **não** foram faultadas — o `CreateFromFile` apenas mapeia o arquivo no espaço de endereçamento; o kernel só traz páginas para a RAM quando são tocadas. Por isso o working set inicial é ~23 MB (runtime .NET + Kestrel), não 168 MB.
+
+**RAM após um `/fraud-score` (KNN brute-force varre todos os 3M vetores):**
+
+| Container            | MEM USAGE / LIMIT    | MEM %  |
+|----------------------|----------------------|--------|
+| `rinha-2026-api-1-1` | 26.07 MiB / 175 MiB  | 14.9 % |
+| `rinha-2026-api-2-1` | 109.4 MiB / 175 MiB  | 62.5 % |
+
+O nginx roteou o request para o `api-2`, que então tocou todas as páginas de vetores durante o KNN → o kernel faultou o arquivo inteiro para a RAM, subindo o working set para **109 MB**. Continua **bem abaixo do limite de 175 MB** — sem OOM kill. O `api-1`, ocioso, ficou em 26 MB.
+
+**Aprendizado importante:** o Docker contabiliza as páginas file-backed do MMF no `MemUsage` do container que as faulta (cada processo conta as suas — não há o "compartilhamento de 0 MB" idealizado, pois cada container é um cgroup separado). Mesmo assim, 109 MB de pico < 175 MB resolve o objetivo do M3: **os containers sobem e servem requests dentro do limite**, o que era impossível com a alocação heap de 168 MB no M2. A pressão de RAM passou a ser file-backed (evictável pelo kernel sob pressão, sem OOM kill do processo) em vez de heap gerenciado (não-evictável → OOM kill).
+
+**`/fraud-score` manual:** retornou `{"approved": true, "fraud_score": 0.4}` — endpoint funcional ponta a ponta.
