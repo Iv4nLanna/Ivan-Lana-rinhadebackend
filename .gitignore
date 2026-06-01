@@ -6,3 +6,7 @@ data/*.json.gz
 data/*.json
 data/*.bin
 !data/.gitkeep
+
+# Harness do k6 (baixado do repo oficial) + test-data.json de 27 MB + results.json gerado.
+# Não é fonte nossa; re-baixável quando precisar. NÃO confundir com tests/ (xUnit).
+/test/
