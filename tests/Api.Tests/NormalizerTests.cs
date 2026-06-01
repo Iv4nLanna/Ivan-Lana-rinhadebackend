@@ -32,7 +32,7 @@ public class NormalizerTests
     private static float[] Normalize(TransactionRequest req,
         Dictionary<string, float>? mcc = null,
         HashSet<string>? known = null)
-        => Normalizer.Normalize(req, mcc ?? [], known ?? []);
+        => Normalizer.Normalize(req, mcc ?? [], known ?? new HashSet<string>(req.Customer.KnownMerchants));
 
     [Fact] public void Dim0_MidRange() => Assert.Equal(0.5f, Normalize(Make(amount: 5000m))[0], 4);
     [Fact] public void Dim0_ClampsAboveMax() => Assert.Equal(1.0f, Normalize(Make(amount: 15000m))[0]);

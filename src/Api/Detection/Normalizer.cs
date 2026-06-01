@@ -45,7 +45,7 @@ public static class Normalizer
 
         vec[10] = req.Terminal.CardPresent ? 1f : 0f;
 
-        vec[11] = (knownMerchants.Contains(req.Merchant.Id) || req.Customer.KnownMerchants.Contains(req.Merchant.Id)) ? 0f : 1f;
+        vec[11] = knownMerchants.Contains(req.Merchant.Id) ? 0f : 1f;
 
         vec[12] = mccRisk.TryGetValue(req.Merchant.Mcc, out float risk) ? risk : 0.5f;
 
