@@ -6,19 +6,41 @@ using Xunit;
 
 namespace RinhaBackend.Tests;
 
-public class EndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class EndpointTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
 {
     private readonly HttpClient _client;
+    private readonly string _dataDir;
 
     public EndpointTests(WebApplicationFactory<Program> factory)
     {
-        var dataPath = Path.GetFullPath(
-            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "..", "data")
-        );
+        _dataDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(_dataDir);
+        File.WriteAllText(Path.Combine(_dataDir, "mcc_risk.json"), "{}");
+
+        var rng = new Random(1);
+        var sb = new System.Text.StringBuilder("[");
+        for (int i = 0; i < 16; i++)
+        {
+            if (i > 0) sb.Append(',');
+            sb.Append("{\"vector\":[");
+            for (int d = 0; d < 14; d++)
+            {
+                if (d > 0) sb.Append(',');
+                sb.Append(rng.NextDouble().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            sb.Append("],\"label\":\"").Append(i % 2 == 0 ? "legit" : "fraud").Append("\"}");
+        }
+        sb.Append(']');
+        File.WriteAllText(Path.Combine(_dataDir, "example-references.json"), sb.ToString());
 
         _client = factory
-            .WithWebHostBuilder(b => b.UseSetting("DataPath", dataPath))
+            .WithWebHostBuilder(b => b.UseSetting("DataPath", _dataDir))
             .CreateClient();
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dataDir, recursive: true); } catch { /* best-effort */ }
     }
 
     [Fact]

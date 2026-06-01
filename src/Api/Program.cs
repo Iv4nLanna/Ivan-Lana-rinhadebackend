@@ -47,7 +47,7 @@ app.MapPost("/fraud-score", async (HttpRequest request, ReferenceDataset ds) =>
 
 app.Run();
 
-// M5: síncrono de propósito — aqui o vetor de query vive na stack (stackalloc).
+// M7: síncrono — normaliza, calcula a gaveta, quantiza e busca dentro da gaveta.
 static IResult ComputeScore(TransactionRequest req, ReferenceDataset ds)
 {
     var knownMerchants = new HashSet<string>(
@@ -57,7 +57,13 @@ static IResult ComputeScore(TransactionRequest req, ReferenceDataset ds)
 
     Span<float> vector = stackalloc float[14];
     Normalizer.Normalize(req, ds.MccRisk, knownMerchants, vector);
-    float fraudScore = KnnSearch.Search(vector, ds);
+
+    int key = PartitionKey.Compute(vector, ds.Cuts);
+
+    Span<byte> quantized = stackalloc byte[14];
+    Quantizer.Quantize(vector, quantized);
+
+    float fraudScore = PartitionedIndex.Search(ds.Vectors, ds.Labels, ds.Offsets, key, quantized);
 
     return Results.Ok(new FraudScoreResponse
     {
