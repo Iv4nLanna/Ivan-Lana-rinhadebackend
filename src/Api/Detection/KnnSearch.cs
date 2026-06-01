@@ -9,7 +9,7 @@ public static class KnnSearch
     // M4: Top-K em uma passada O(n·k). Mantém os K vizinhos mais próximos num
     // buffer stackalloc de K — sem `new float[count]` (~12 MB/req) e sem `.OrderBy()`
     // de 3M itens (O(n log n)). Para k=5 fixo, a inserção limitada supera tanto um heap quanto o sort completo.
-    public static float Search(float[] query, ReferenceDataset ds)
+    public static float Search(ReadOnlySpan<float> query, ReferenceDataset ds)
     {
         int count = ds.Count;
 

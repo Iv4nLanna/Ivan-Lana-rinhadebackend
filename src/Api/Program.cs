@@ -40,21 +40,30 @@ app.MapPost("/fraud-score", async (HttpRequest request, ReferenceDataset ds) =>
     if (!ds.IsReady)
         return Results.StatusCode(503);
 
+    // M5: stackalloc não pode existir num método async (Span não sobrevive ao await),
+    // então o trabalho com o vetor na stack acontece no método síncrono ComputeScore.
+    return ComputeScore(req, ds);
+});
+
+app.Run();
+
+// M5: síncrono de propósito — aqui o vetor de query vive na stack (stackalloc).
+static IResult ComputeScore(TransactionRequest req, ReferenceDataset ds)
+{
     var knownMerchants = new HashSet<string>(
         req.Customer.KnownMerchants,
         StringComparer.OrdinalIgnoreCase
     );
 
-    var vector = Normalizer.Normalize(req, ds.MccRisk, knownMerchants);
-    var fraudScore = KnnSearch.Search(vector, ds);
+    Span<float> vector = stackalloc float[14];
+    Normalizer.Normalize(req, ds.MccRisk, knownMerchants, vector);
+    float fraudScore = KnnSearch.Search(vector, ds);
 
     return Results.Ok(new FraudScoreResponse
     {
         Approved = fraudScore < 0.6f,
         FraudScore = fraudScore
     });
-});
-
-app.Run();
+}
 
 public partial class Program { }
