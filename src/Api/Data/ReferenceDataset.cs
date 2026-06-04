@@ -29,6 +29,10 @@ public sealed class ReferenceDataset : IDisposable
     public int Count { get; private set; }
     public Dictionary<string, float> MccRisk { get; private set; } = [];
 
+    // M8: taxa de fraude por gaveta, precomputada no load. Gaveta "pura" (rate ~0 ou ~1)
+    // responde O(1) — em gaveta pura os 5 vizinhos têm o mesmo rótulo, então a taxa == kNN.
+    public float[] PartitionRate { get; private set; } = [];
+
     private volatile bool _isReady;
     public bool IsReady => _isReady;
 
@@ -57,7 +61,24 @@ public sealed class ReferenceDataset : IDisposable
         else
             await LoadFromJsonAsync(dataDir);
 
+        ComputePartitionRates();
         _isReady = true;
+    }
+
+    // M8: uma passada sobre os labels agrupados → fração de fraude de cada gaveta.
+    private void ComputePartitionRates()
+    {
+        var offsets = Offsets;
+        var labels = Labels;
+        var rates = new float[_numPartitions];
+        for (int p = 0; p < _numPartitions; p++)
+        {
+            int start = offsets[p], end = offsets[p + 1];
+            int frauds = 0;
+            for (int i = start; i < end; i++) if (labels[i] != 0) frauds++;
+            rates[p] = end > start ? frauds / (float)(end - start) : 0f;
+        }
+        PartitionRate = rates;
     }
 
     private unsafe void LoadFromMmf(string indexPath)

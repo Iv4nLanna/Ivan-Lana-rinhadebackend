@@ -60,10 +60,25 @@ static IResult ComputeScore(TransactionRequest req, ReferenceDataset ds)
 
     int key = PartitionKey.Compute(vector, ds.Cuts);
 
-    Span<byte> quantized = stackalloc byte[14];
-    Quantizer.Quantize(vector, quantized);
-
-    float fraudScore = PartitionedIndex.Search(ds.Vectors, ds.Labels, ds.Offsets, key, quantized);
+    // M8: gaveta pura → resposta O(1) (mesma que o kNN daria), sem varrer.
+    // Mata a gaveta de 600k (100% fraude) que dominava o p99. eps=0.01 medido offline:
+    // detecção idêntica ao kNN (ver docs/.../m8-experimento). Só ambígua paga o scan.
+    float rate = ds.PartitionRate[key];
+    float fraudScore;
+    if (rate < 0.01f)
+    {
+        fraudScore = 0f;
+    }
+    else if (rate > 0.99f)
+    {
+        fraudScore = 1f;
+    }
+    else
+    {
+        Span<byte> quantized = stackalloc byte[14];
+        Quantizer.Quantize(vector, quantized);
+        fraudScore = PartitionedIndex.Search(ds.Vectors, ds.Labels, ds.Offsets, key, quantized);
+    }
 
     return Results.Ok(new FraudScoreResponse
     {
