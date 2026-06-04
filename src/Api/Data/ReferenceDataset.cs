@@ -33,6 +33,10 @@ public sealed class ReferenceDataset : IDisposable
     // responde O(1) — em gaveta pura os 5 vizinhos têm o mesmo rótulo, então a taxa == kNN.
     public float[] PartitionRate { get; private set; } = [];
 
+    // M9: árvore com poda por gaveta, construída em memória no startup. Gaveta ambígua usa
+    // a árvore (kNN exato, idêntico ao scan plano, mas com poda) em vez de varrer tudo.
+    public PartitionForest? Forest { get; private set; }
+
     private volatile bool _isReady;
     public bool IsReady => _isReady;
 
@@ -62,6 +66,7 @@ public sealed class ReferenceDataset : IDisposable
             await LoadFromJsonAsync(dataDir);
 
         ComputePartitionRates();
+        Forest = PartitionForest.Build(Vectors, Offsets, _numPartitions);
         _isReady = true;
     }
 

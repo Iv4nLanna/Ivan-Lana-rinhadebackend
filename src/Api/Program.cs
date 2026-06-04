@@ -75,9 +75,10 @@ static IResult ComputeScore(TransactionRequest req, ReferenceDataset ds)
     }
     else
     {
+        // M9: gaveta ambígua → árvore com poda por caixa (kNN exato, mas sem varrer tudo).
         Span<byte> quantized = stackalloc byte[14];
         Quantizer.Quantize(vector, quantized);
-        fraudScore = PartitionedIndex.Search(ds.Vectors, ds.Labels, ds.Offsets, key, quantized);
+        fraudScore = ds.Forest!.Search(ds.Vectors, ds.Labels, key, quantized);
     }
 
     return Results.Ok(new FraudScoreResponse
