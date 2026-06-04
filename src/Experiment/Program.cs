@@ -174,6 +174,35 @@ Console.WriteLine("custo de scan por query (nº de vetores comparados) — proxy
 Console.WriteLine($"  M7 (sempre scan): p50={Pct(scanM7, 50):N0}  p90={Pct(scanM7, 90):N0}  p99={Pct(scanM7, 99):N0}  max={Pct(scanM7, 100):N0}");
 Console.WriteLine($"  Híbrido         : p50={Pct(scanHyb, 50):N0}  p90={Pct(scanHyb, 90):N0}  p99={Pct(scanHyb, 99):N0}  max={Pct(scanHyb, 100):N0}");
 
+// 10. VERIFICAÇÃO M9: árvore com poda por caixa vs scan plano (paridade exata + tempo).
+Console.WriteLine();
+Console.WriteLine("--- M9: árvore com poda dentro da gaveta ---");
+sw.Restart();
+var forest = PartitionForest.Build(vec, offsets, P);
+Console.WriteLine($"build da floresta (startup): {sw.ElapsedMilliseconds} ms");
+
+var testQ = new byte[n * Dims];
+for (int i = 0; i < n; i++) Quantizer.Quantize(testVecs.AsSpan(i * Dims, Dims), testQ.AsSpan(i * Dims, Dims));
+
+// tempo de busca SÓ nas ambíguas (o que o runtime de fato varre): plano vs árvore.
+sw.Restart();
+for (int i = 0; i < n; i++) { int key = testKey[i]; if (isPure[key]) continue; _ = PartitionedIndex.Search(vec, lab, offsets, key, testQ.AsSpan(i * Dims, Dims)); }
+double flatMs = sw.Elapsed.TotalMilliseconds;
+sw.Restart();
+for (int i = 0; i < n; i++) { int key = testKey[i]; if (isPure[key]) continue; _ = forest.Search(vec, lab, key, testQ.AsSpan(i * Dims, Dims)); }
+double treeMs = sw.Elapsed.TotalMilliseconds;
+
+// paridade em TODAS as gavetas (garante que a árvore é kNN exato == scan plano).
+int mism = 0;
+for (int i = 0; i < n; i++)
+{
+    int key = testKey[i];
+    var qq = testQ.AsSpan(i * Dims, Dims);
+    if (PartitionedIndex.Search(vec, lab, offsets, key, qq) != forest.Search(vec, lab, key, qq)) mism++;
+}
+Console.WriteLine($"paridade: {mism} divergências em {n:N0} (0 = árvore exata, idêntica ao scan plano)");
+Console.WriteLine($"busca nas ambíguas: plano={flatMs:F0}ms  árvore={treeMs:F0}ms  speedup={flatMs / Math.Max(treeMs, 0.001):F1}x");
+
 static int Pct(int[] a, double p)
 {
     var c = (int[])a.Clone();
