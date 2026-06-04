@@ -106,4 +106,25 @@ cross-partition exata (detecção 1335 → ~3000) fica pra depois.
   `approved = score < 0.6`. Latência: +1000 por 10× (satura +3000 a ≤1ms, −3000 acima de
   2000ms). Detecção: pesos **erro HTTP > fn > fp**, corte em 15%.
 - **Prazo de submissão: 2026-06-05 23:59** → favorece mudança simples e de alto impacto.
+
+## Benchmark real (Docker, `infra/docker-compose.yml`, 2026-06-04)
+
+A/B **controlado, mesmo ambiente**, load reduzido a 300 RPS (a máquina local satura ≥600
+RPS sob o limite de 0.95 CPU — não sustenta os 900 RPS oficiais; o ambiente onde o M7 deu
++606 é mais forte / é o preview oficial):
+
+| | p99 | det | **final** | timeouts |
+|---|---|---|---|---|
+| M7 (scan sempre) | 1185 ms | +1499 | +1425 | 0 |
+| **M8 (atalho)** | **23 ms** | +1503 | **+3142** | 0 |
+
+- Detecção **idêntica** (fp/fn 38/31 nos dois) → atalho não custa detecção, como previsto.
+- p99 **1185 → 23 ms (51×)**; score **+1717** só de latência. M8 @300 usou ~100 VUs vs M7
+  ~250 VUs (saturou o pool) → requests do M7 bem mais lentas.
+- @900 RPS ambos saturam a máquina local (p99 bate o teto 2001ms → −3000). Não é bug:
+  detecção segue boa (fp/fn ~60-77). É falta de CPU local pra 900 RPS sustentados.
+
+**Ação:** rodar/submeter M8 no ambiente forte (ou no preview oficial, 10/dia) pra o número
+real a 900 RPS. M9 (árvore nas ambíguas grandes #18/#21) reduz CPU/request → sobe o
+throughput sustentável → ajuda a limpar os 900 RPS mesmo em máquina fraca.
 </content>
