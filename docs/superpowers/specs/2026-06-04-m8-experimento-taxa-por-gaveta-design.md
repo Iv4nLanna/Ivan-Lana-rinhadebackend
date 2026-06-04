@@ -73,6 +73,37 @@ busca cross-partition exata.
 
 - Experimento é **medição** — código isolado em `src/Experiment`, não toca a API.
 - Se a taxa vencer, o M8 "de produção" troca `PartitionedIndex.Search` por um lookup de
-  `rate[key]` no runtime (mudança pequena no `Program.cs`), e o `index.bin` passa a
-  guardar o vetor de taxas por gaveta.
+  `rate[key]` no runtime (mudança pequena no `Program.cs`).
+
+## Resultado medido (2026-06-04, N=54.100, offline erro=0)
+
+| Modelo | fp | fn | falhas | detScore |
+|---|---|---|---|---|
+| kNN M7 (32 gavetas) | 117 | 98 | 0,40% | **1335** |
+| Taxa coarse (32) | 669 | 308 | 1,81% | 570 |
+| Taxa FINA (256, 5 flags+octis) | 1607 | 0 | 2,97% | 565 |
+| **Híbrido (puro O(1) + kNN)** | 117 | 98 | 0,40% | **1335** |
+
+**Veredito:**
+1. A taxa pura **não substitui o kNN** — empaca em ~570 com 32 *ou* 256 gavetas. A
+   ambiguidade dentro das gavetas mistas só se resolve olhando o vizinho (kNN). Logo
+   "kNN é desnecessário" = **falso**.
+2. Mas as gavetas são quase todas **puras** (rate ~0 ou ~1), e a gaveta que mata o p99
+   (#29, 600k, 20% dos dados) é **100% fraude**. Em gaveta pura, taxa == kNN (zero perda).
+3. **Híbrido** = atalho O(1) em gaveta pura (eps=0,01 → 9/32 puras) + kNN nas ambíguas:
+   - detScore **1335, idêntico ao kNN** (mesmos fp/fn).
+   - **74,2%** das queries respondem O(1) (p50 de scan = **0**).
+   - p99 de scan (proxy de latência): **600k → 303k**; a #29 some, sobra a #18 (303k, 3,9%).
+
+**Decisão:** M8 = **atalho de pureza** (mudança mínima, mantém detecção, derruba ~metade do
+p99). A árvore com poda nas ambíguas grandes (#18=303k, #21=183k) vira **M9**. Busca
+cross-partition exata (detecção 1335 → ~3000) fica pra depois.
+
+## Regras / limites oficiais (confirmados em `zanfranceschi/rinha-de-backend-2026`)
+
+- `k6-summary.js` do harness local é **idêntico** ao oficial — fórmula de score validada.
+- Limites: **CPU total 1.0, memória total 350MB**. `fraud_score = nº fraudes/5`,
+  `approved = score < 0.6`. Latência: +1000 por 10× (satura +3000 a ≤1ms, −3000 acima de
+  2000ms). Detecção: pesos **erro HTTP > fn > fp**, corte em 15%.
+- **Prazo de submissão: 2026-06-05 23:59** → favorece mudança simples e de alto impacto.
 </content>
