@@ -1,0 +1,10 @@
+.git
+**/bin/
+**/obj/
+/test/
+/tests/
+/docs/
+# data/ é pesado (references.bin 163MB); manda SÓ o índice + mcc pro contexto.
+data/*
+!data/index.bin
+!data/mcc_risk.json
